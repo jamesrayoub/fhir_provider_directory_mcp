@@ -5,7 +5,6 @@ description = "A MCP server designed to access an insurer's provider directory t
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fhir-resources>=8.1.0",
     "fhirpy>=2.2.0",
     "fastmcp>=2.14.1",
 ]
