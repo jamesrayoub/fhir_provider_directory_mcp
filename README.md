@@ -5,15 +5,15 @@ A Model Context Protocol (MCP) server that exposes a FHIR-based Provider Directo
 ## Features
 
 - **FHIR R4 Compliant**: Interacts with standard FHIR resources.
-- **Provider Directory Focus**: specialized tools for searching practitioners, organizations, locations, and insurance plans.
-- **Pydantic Validation**: Uses `fhir.resources` to validate responses, ensuring data integrity while being resilient to non-fatal errors.
+- **Provider Directory Focus**: Specialized tools for searching practitioners, organizations, locations, and insurance plans.
 - **FastMCP**: Built on the efficient `fastmcp` framework.
+- **Type-Safe Parameters**: Uses Pydantic's `Annotated` and `Field` for parameter validation and documentation.
 
 ## Setup
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - `uv` (recommended) or `pip`
 
 ### Installation
@@ -23,18 +23,13 @@ A Model Context Protocol (MCP) server that exposes a FHIR-based Provider Directo
    ```bash
    uv sync
    ```
-   Or with pip:
-   ```bash
-   pip install -r requirements.txt
-   ```
 
 ### Configuration
 
-Create a `.env` file in the root directory (optional, defaults provided):
+The server uses environment variables for configuration. Default values are provided, but you can override them by creating a `.env` file in the root directory:
 
 ```env
-FHIR_BASE_URL=https://flex.optum.com/fhirpublic/R4/
-LOG_LEVEL=INFO
+FHIR_SERVER_URL=https://flex.optum.com/fhirpublic/R4
 ```
 
 ## Tools Available
@@ -42,81 +37,89 @@ LOG_LEVEL=INFO
 ### `search_practitioner`
 Search for Practitioners in the directory.
 - **Args**:
-  - `name`: A portion of the family or given name.
+  - `identifier`: The identifier of the practitioner (e.g., NPI).
   - `family`: The family name (surname).
   - `given`: The given name (first name).
-  - `id`: The logical ID of the practitioner.
-
-### `get_practitioner`
-Retrieve a specific Practitioner by their logical ID.
-- **Args**:
-  - `id`: The logical ID of the practitioner.
+  - `address_state`: The state of the practitioner's address.
+  - `limit`: Number of results to return (1-1000, default: 25).
 
 ### `search_practitioner_role`
 Search for roles that practitioners play within an organization at a location.
 - **Args**:
-  - `practitioner`: Reference to the practitioner (e.g., "Practitioner/123").
+  - `practitioner`: Reference to the practitioner (e.g., "Practitioner/123" or just "123").
   - `organization`: Reference to the organization.
   - `location`: Reference to the location.
   - `specialty`: Code for the specialty.
+  - `limit`: Number of results to return (1-1000, default: 100).
 
 ### `search_location`
 Search for physical locations (e.g., clinics, hospitals).
 - **Args**:
   - `name`: A portion of the location's name or alias.
   - `address`: A portion of the address parts.
-  - `city`: The city.
-  - `state`: The state.
-  - `postalCode`: The postal code.
+  - `city`: The city specified in an address.
+  - `state`: The state specified in an address.
+  - `postal_code`: A postal code specified in an address.
   - `usage`: Location usage code.
-  - `status`: One of `active`, `suspended`, `inactive`.
+  - `status`: Location status (`active`, `suspended`, or `inactive`).
+  - `limit`: Number of results to return (1-1000, default: 50).
 
 ### `search_organization`
 Search for organizations (e.g., hospitals, insurance companies).
 - **Args**:
   - `name`: A portion of the organization's name.
-  - `type`: Code for the type of organization (e.g., `prov`, `dept`, `ins`, `pay`).
+  - `type`: A code for the type of organization (e.g., `prov`, `dept`, `ins`, `pay`).
   - `partof`: Reference to the parent organization.
+  - `limit`: Number of results to return (1-1000, default: 25).
 
 ### `search_organization_affiliation`
 Search for relationships between organizations.
 - **Args**:
   - `primary_organization`: Reference to the primary organization.
   - `participating_organization`: Reference to the participating organization.
-  - `role`: Definition of the role.
-  - `specialty`: Specific specialty in the context of the role.
-  - `location`: Location at which the role occurs.
+  - `role`: Definition of the role the participatingOrganization plays.
+  - `specialty`: Specific specialty of the participatingOrganization in the context of the role.
+  - `location`: The location(s) at which the role occurs.
+  - `limit`: Number of results to return (1-1000, default: 100).
 
 ### `search_healthcare_service`
 Search for specific services provided by an organization at a location.
 - **Args**:
-  - `organization`: The providing organization.
-  - `location`: The location where service is provided.
-  - `name`: A portion of the service name.
-  - `category`: Service Category code.
-  - `type`: Service Type code.
-  - `specialty`: Specialty code.
+  - `organization`: The organization that provides this Healthcare Service.
+  - `location`: The location(s) where this Healthcare Service is provided.
+  - `name`: A portion of the Healthcare Service name.
+  - `category`: Service Category of the Healthcare Service.
+  - `type`: The Code or Name of the Service Type of the Healthcare Service.
+  - `specialty`: The specialty of the service provided.
+  - `limit`: Number of results to return (1-1000, default: 25).
 
 ### `search_insurance_plan`
 Search for insurance products.
 - **Args**:
-  - `name`: A portion of the plan name.
-  - `type`: Kind of plan (e.g., `medical`, `dental`).
-  - `administered_by`: Product administrator reference.
-  - `owned_by`: Product issuer reference.
-  - `identifier`: Any identifier for the product.
+  - `name`: A portion of the insurance plan name.
+  - `type`: Kind of plan (e.g., `medical`, `dental`, `mental`).
+  - `administered_by`: Product administrator (Organization).
+  - `owned_by`: Product issuer (Organization).
+  - `coverage_area`: The coverage area for the product (Location).
+  - `limit`: Number of results to return (1-1000, default: 25).
+
+### `read_resource`
+Read a specific FHIR resource by type and ID.
+- **Args**:
+  - `resource_type`: The type of resource (e.g., `Practitioner`, `Organization`, `Location`, `HealthcareService`, `InsurancePlan`, `PractitionerRole`, `OrganizationAffiliation`).
+  - `id`: The logical ID of the resource.
 
 ## Development
 
 Run the server locally for dev/testing:
 
 ```bash
-uv run src/server.py
+uv run src/fhir_provider_directory_mcp/server.py
 ```
 
 ## Usage with MCP Clients
 
-To use this server with an MCP client (like Claude Desktop), add the following configuration to your `mcp_config.json` or `claude_desktop_config.json`. Assuming you are in the project root:
+To use this server with an MCP client (like Claude Desktop), add the following configuration to your `mcp_config.json` or `claude_desktop_config.json`:
 
 ```json
 {
@@ -125,18 +128,17 @@ To use this server with an MCP client (like Claude Desktop), add the following c
       "command": "uv",
       "args": [
         "run",
-        "src/server.py"
+        "src/fhir_provider_directory_mcp/server.py"
       ],
       "env": {
-        "FHIR_BASE_URL": "https://flex.optum.com/fhirpublic/R4/",
-        "LOG_LEVEL": "INFO"
+        "FHIR_SERVER_URL": "https://flex.optum.com/fhirpublic/R4"
       }
     }
   }
 }
 ```
 
-**Note**: You may need to provide the absolute path to `src/server.py` and `uv` if the client runs from a different directory. For example:
+**Note**: You may need to provide the absolute path to `src/fhir_provider_directory_mcp/server.py` and `uv` if the client runs from a different directory. For example:
 
 ```json
 {
@@ -145,9 +147,11 @@ To use this server with an MCP client (like Claude Desktop), add the following c
       "command": "/path/to/uv",
       "args": [
         "run",
-        "/absolute/path/to/fhir-provider-directory-mcp/src/server.py"
+        "/absolute/path/to/fhir-provider-directory-mcp/src/fhir_provider_directory_mcp/server.py"
       ],
-      ...
+      "env": {
+        "FHIR_SERVER_URL": "https://flex.optum.com/fhirpublic/R4"
+      }
     }
   }
 }
