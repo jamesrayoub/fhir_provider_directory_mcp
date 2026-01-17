@@ -2,3 +2,4 @@
 .venv/
 __pycache__
 src/fhir_provider_directory_mcp.egg-info
+.DS_Store
